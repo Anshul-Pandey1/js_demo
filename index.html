@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h1>Simple Audio Recorder</h1>
+    <label for="recordTime">Recording Duration (seconds):</label>
+    <input type="number" id="recordTime" value="10" min="1" max="60" />
+    <br /><br />
+    <button id="start">Start Recording</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <div id="audioPlayer"></div>
+    <div id="downloadLink"></div>
+
+    <script>
+      const startBtn = document.getElementById("start");
+      const stopBtn = document.getElementById("stop");
+      const recordTimeInput = document.getElementById("recordTime");
+      let recorder, stream, timeout;
+
+      startBtn.addEventListener("click", async () => {
+        const recordTime = parseInt(recordTimeInput.value) * 1000; // Convert to milliseconds
+        if (isNaN(recordTime) || recordTime <= 0) {
+          alert("Please enter a valid recording duration.");
+          return;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recorder = new MediaRecorder(stream);
+
+        const audioChunks = [];
+        recorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+
+        recorder.onstop = () => {
+          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+          const audioUrl = URL.createObjectURL(audioBlob);
+
+          // Create an audio player
+          const audioElement = document.createElement("audio");
+          audioElement.controls = true;
+          audioElement.src = audioUrl;
+          document.getElementById("audioPlayer").innerHTML = "";
+          document.getElementById("audioPlayer").appendChild(audioElement);
+
+          // Create a download link
+          const downloadLink = document.createElement("a");
+          downloadLink.href = audioUrl;
+          downloadLink.download = "recorded-audio.webm";
+          downloadLink.textContent = "Download the recorded audio";
+          document.getElementById("downloadLink").innerHTML = "";
+          document.getElementById("downloadLink").appendChild(downloadLink);
+        };
+
+        recorder.start();
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        // Automatically stop recording after the set duration
+        timeout = setTimeout(() => {
+          stopRecording();
+        }, recordTime);
+      });
+
+      stopBtn.addEventListener("click", () => {
+        stopRecording();
+      });
+
+      function stopRecording() {
+        if (recorder && recorder.state === "recording") {
+          recorder.stop();
+          stream.getTracks().forEach((track) => track.stop());
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          clearTimeout(timeout);
+        }
+      }
+    </script>
+  </body>
+</html>
